@@ -1664,38 +1664,89 @@ function exportCSV(){
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='satoshi-users.csv';a.click()
   toast('CSV downloaded')
 }
-
 // Start auth on load
 initAuth()
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
+// ─────────────────────────────────────────────
+// SUPABASE
+// ─────────────────────────────────────────────
 const SUPABASE_URL = 'https://tcjnpbhichrzseixukat.supabase.co'
 
-const SUPABASE_ANON_KEY = 'YOUR_KEY'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjam5wYmhpY2hyenNlaXh1a2F0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTc4MDAsImV4cCI6MjA5NDE3MzgwMH0.CJ_Axb0-cpSVU7VjywH-NBqIDnnV84iv8Hm9aXNF6Yo'
 
 const supabaseClient = supabase.createClient(
   SUPABASE_URL,
-  SUPABASE_ANON_KEY
+  SUPABASE_ANON_KEY 
 )
 
+// Google OAuth
 async function signInWithGoogle() {
-  console.log('Google button clicked')
-
-  const { data, error } = await supabaseClient.auth.signInWithOAuth({
+  const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: window.location.origin
     }
   })
 
-  console.log(data)
-  console.log(error)
-
   if (error) {
-    alert(error.message)
+    toast(error.message, true)
   }
+}
+
+// Restore session on refresh
+supabaseClient.auth.getSession().then(({ data }) => {
+  if (data.session) {
+    const user = data.session.user
+
+    currentUser = {
+      email: user.email,
+      name:
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email.split('@')[0],
+      plan: 'free',
+      isAdmin: false
+    }
+
+    applyLogin(currentUser)
+  }
+})
+
+// Auth listener
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    const user = session.user
+
+    currentUser = {
+      email: user.email,
+      name:
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email.split('@')[0],
+      plan: 'free',
+      isAdmin: false
+    }
+
+    applyLogin(currentUser)
+  }
+
+  if (event === 'SIGNED_OUT') {
+    currentUser = null
+    document.getElementById('auth-overlay').style.display = 'flex'
+  }
+})
+
+// Logout
+async function aLogout() {
+  await supabaseClient.auth.signOut()
+
+  localStorage.removeItem('st_sess')
+
+  currentUser = null
+
+  document.getElementById('auth-overlay').style.display = 'flex'
+
+  toast('Signed out')
 }
 </script>
 </body>
