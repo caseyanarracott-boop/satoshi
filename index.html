@@ -1692,13 +1692,19 @@ async function signInWithGoogle() {
     options: {
       redirectTo: 'https://satoshi-caseysstream.vercel.app'
     }
-  })
+  }
+  supabaseClient.auth.getSession().then(({ data }) => {
+  if (data.session) {
+    window.location.href = '/'
+  }
+})
 
   if (error) {
     console.error(error)
     alert('Google login failed')
   }
 }
+  
 </script>
 </body>
 </html>
