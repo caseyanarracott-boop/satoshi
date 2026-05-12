@@ -1676,10 +1676,12 @@ initAuth()
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 const SUPABASE_URL = 'https://tcjnpbhichrzseixukat.supabase.co'
 
-const SUPABASE_ANON_KEY = 'YOUR_KEY'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjam5wYmhpY2hyenNlaXh1a2F0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTc4MDAsImV4cCI6MjA5NDE3MzgwMH0.CJ_Axb0-cpSVU7VjywH-NBqIDnnV84iv8Hm9aXNF6Yo'
 
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
@@ -1692,19 +1694,13 @@ async function signInWithGoogle() {
     options: {
       redirectTo: 'https://satoshi-caseysstream.vercel.app'
     }
-  }
-  supabaseClient.auth.getSession().then(({ data }) => {
-  if (data.session) {
-    window.location.href = '/'
-  }
-})
+  })
 
   if (error) {
     console.error(error)
-    alert('Google login failed')
+    alert(error.message)
   }
 }
-  
 </script>
 </body>
 </html>
