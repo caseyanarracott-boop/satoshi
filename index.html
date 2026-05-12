@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Satoshi Terminal — Bitcoin Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.6/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#030712;--bg2:#080e1c;--surface:#0f1829;--surface2:#151f33;--surface3:#1a2640;
+  --border:#1e3558;--border2:#243d66;
+  --cyan:#06d6f0;--cyan2:#22e8ff;--cyan3:#7ef5ff;
+  --blue:#3b7ef8;--blue2:#6097ff;
+  --green:#0fba81;--green2:#1fd494;--green3:#5fffc4;
+  --red:#f04060;--red2:#ff6080;
+  --yellow:#f0a020;--yellow2:#ffc040;
+  --text:#e8f4ff;--text2:#8aaccc;--text3:#4a6888;
+  --font:'DM Sans',system-ui,sans-serif;
+  --mono:'Space Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
+
+/* GRID BG */
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(6,214,240,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(6,214,240,.03) 1px,transparent 1px);
+  background-size:48px 48px;animation:gridMove 25s linear infinite}
+@keyframes gridMove{to{background-position:48px 48px}}
+
+/* AMBIENT ORBS */
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 60% 40% at 15% 20%,rgba(6,214,240,.055) 0%,transparent 100%),
+              radial-gradient(ellipse 40% 50% at 85% 80%,rgba(59,126,248,.05) 0%,transparent 100%)}
+
+/* LAYOUT */
+#app{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* TOPBAR */
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:50px;
+  background:rgba(3,7,18,.97);border-bottom:1px solid var(--border);flex-shrink:0;
+  backdrop-filter:blur(24px);gap:12px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.logo-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-weight:700;font-size:14px;color:#000;
+  background:linear-gradient(135deg,var(--cyan),var(--blue));box-shadow:0 0 18px rgba(6,214,240,.2)}
+.logo-text{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.12em}
+.logo-text span:first-child{color:var(--cyan)}
+.logo-text span:last-child{color:var(--text2)}
+
+/* NAV TABS */
+#nav{display:flex;gap:2px;flex-shrink:0}
+.nav-btn{padding:6px 14px;border-radius:6px;border:1px solid transparent;background:transparent;
+  color:var(--text2);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.nav-btn:hover{color:var(--text);background:rgba(6,214,240,.07);border-color:rgba(6,214,240,.12)}
+.nav-btn.active{color:var(--cyan);background:rgba(6,214,240,.1);border-color:rgba(6,214,240,.2)}
+
+/* TICKER */
+#ticker-wrap{height:30px;display:flex;align-items:center;overflow:hidden;
+  background:rgba(6,214,240,.025);border-bottom:1px solid rgba(30,53,88,.6);flex-shrink:0}
+#ticker-track{display:flex;gap:0;white-space:nowrap;animation:tickerScroll 45s linear infinite}
+#ticker-track:hover{animation-play-state:paused}
+@keyframes tickerScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.tick{display:inline-flex;align-items:center;gap:8px;padding:0 28px;font-family:var(--mono);font-size:10px;
+  border-right:1px solid rgba(30,53,88,.5)}
+.tick-label{color:var(--text3)}
+.tick-val{color:var(--text)}
+.tick-chg.up{color:var(--green2)}
+.tick-chg.dn{color:var(--red2)}
+
+/* PAGES */
+.page{display:none;flex:1;overflow-y:auto;overflow-x:hidden}
+.page.active{display:flex;flex-direction:column}
+.page::-webkit-scrollbar{width:5px}
+.page::-webkit-scrollbar-track{background:transparent}
+.page::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* DASHBOARD LAYOUT */
+#dashboard-inner{display:grid;grid-template-columns:1fr 1fr 1fr 280px;grid-template-rows:auto 1fr auto auto;
+  gap:10px;padding:10px;height:100%;min-height:0}
+
+/* GLASS CARD */
+.card{background:rgba(15,24,41,.85);border:1px solid var(--border);border-radius:11px;
+  backdrop-filter:blur(20px);transition:border-color .2s}
+.card:hover{border-color:var(--border2)}
+.card-hd{padding:11px 14px 8px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(30,53,88,.5)}
+.card-label{font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--text3);text-transform:uppercase}
+.card-body{padding:12px 14px}
+
+/* METRIC PILLS ROW */
+#metrics-row{grid-column:1/4;display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.metric{padding:10px 12px;border-radius:9px;background:rgba(15,24,41,.85);border:1px solid var(--border)}
+.metric-label{font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:4px}
+.metric-val{font-family:var(--mono);font-size:14px;font-weight:700}
+.metric-sub{font-size:10px;margin-top:2px}
+.col-cyan{color:var(--cyan)}
+.col-green{color:var(--green2)}
+.col-red{color:var(--red2)}
+.col-yellow{color:var(--yellow2)}
+.col-text2{color:var(--text2)}
+
+/* CHART AREA */
+#chart-card{grid-column:1/4;grid-row:2/4;min-height:0;display:flex;flex-direction:column}
+#chart-container{flex:1;min-height:0;border-radius:0 0 10px 10px;overflow:hidden}
+
+/* TF BUTTONS */
+.tf-btns{display:flex;gap:4px}
+.tf-btn{padding:3px 9px;border-radius:4px;border:1px solid transparent;background:transparent;
+  font-family:var(--mono);font-size:10px;color:var(--text3);cursor:pointer;transition:all .15s}
+.tf-btn:hover{color:var(--cyan);border-color:rgba(6,214,240,.2)}
+.tf-btn.active{color:var(--cyan);background:rgba(6,214,240,.1);border-color:rgba(6,214,240,.25)}
+
+/* RIGHT COLUMN */
+#right-col{grid-column:4;grid-row:1/5;display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:0}
+#right-col::-webkit-scrollbar{display:none}
+
+/* INDICATORS */
+#indicators-row{grid-column:1/4;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+/* FEAR GREED GAUGE */
+.gauge-wrap{display:flex;align-items:center;gap:12px}
+.gauge-svg{flex-shrink:0}
+.gauge-info{}
+.gauge-num{font-family:var(--mono);font-size:26px;font-weight:700}
+.gauge-lbl{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-top:1px}
+
+/* INDICATOR BAR */
+.ind-bar-wrap{margin-top:8px}
+.ind-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.ind-name{font-size:10px;color:var(--text3)}
+.ind-val{font-family:var(--mono);font-size:10px}
+.ind-bar{height:3px;border-radius:2px;background:rgba(30,53,88,.7);overflow:hidden;margin-bottom:7px}
+.ind-fill{height:100%;border-radius:2px;transition:width 1s ease}
+
+/* WHALE LIST */
+.whale-list{display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto}
+.whale-list::-webkit-scrollbar{display:none}
+.whale-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;
+  border-radius:6px;background:rgba(0,0,0,.25);border:1px solid rgba(30,53,88,.4);font-size:10px;gap:8px}
+.whale-left{flex:1;min-width:0}
+.whale-name{font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.whale-usd{font-size:9px;color:var(--text3);margin-top:1px}
+.whale-btc{font-family:var(--mono);font-size:10px;font-weight:700;white-space:nowrap}
+
+/* LEVELS */
+.levels-list{display:flex;flex-direction:column;gap:4px}
+.level-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px}
+.level-name{color:var(--text2)}
+.level-price{font-family:var(--mono);font-weight:700;font-size:11px}
+.level-divider{border:none;border-top:1px solid rgba(30,53,88,.5);margin:4px 0}
+
+/* TRADE FEED */
+.trade-list{display:flex;flex-direction:column;gap:2px;max-height:160px;overflow-y:auto}
+.trade-list::-webkit-scrollbar{display:none}
+.trade-row{display:grid;grid-template-columns:40px 1fr 1fr 1fr;gap:4px;align-items:center;
+  padding:2px 0;font-family:var(--mono);font-size:9px}
+.trade-side{font-weight:700}
+.trade-side.buy{color:var(--green2)}
+.trade-side.sell{color:var(--red2)}
+
+/* LIVE DOT */
+.live-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);
+  animation:livePulse 2s infinite}
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.6)}}
+
+/* CONN BADGE */
+.conn-badge{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:5px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em}
+.conn-badge.live{background:rgba(15,186,129,.08);border:1px solid rgba(15,186,129,.2);color:var(--green2)}
+.conn-badge.connecting{background:rgba(240,160,32,.08);border:1px solid rgba(240,160,32,.2);color:var(--yellow2)}
+.conn-badge.offline{background:rgba(240,64,96,.08);border:1px solid rgba(240,64,96,.2);color:var(--red2)}
+
+/* MINI SPARKLINE */
+.spark-canvas{width:100%;height:50px;display:block}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.06em}
+.badge-green{background:rgba(15,186,129,.12);color:var(--green2);border:1px solid rgba(15,186,129,.2)}
+.badge-cyan{background:rgba(6,214,240,.1);color:var(--cyan);border:1px solid rgba(6,214,240,.2)}
+.badge-red{background:rgba(240,64,96,.1);color:var(--red2);border:1px solid rgba(240,64,96,.2)}
+.badge-yellow{background:rgba(240,160,32,.1);color:var(--yellow2);border:1px solid rgba(240,160,32,.2)}
+
+/* BTC PRICE IN TOPBAR */
+#topbar-price{display:flex;align-items:center;gap:10px;font-family:var(--mono)}
+#tb-price{font-size:15px;font-weight:700;color:var(--cyan);text-shadow:0 0 20px rgba(6,214,240,.35);transition:color .3s}
+#tb-change{font-size:10px;padding:3px 8px;border-radius:4px;font-weight:700}
+
+/* ── AI PAGE ──────────────────────────────────── */
+#ai-inner{max-width:820px;width:100%;margin:0 auto;padding:16px;display:flex;flex-direction:column;height:100%;gap:12px}
+#ai-header{display:flex;align-items:center;justify-content:space-between}
+#ai-info{display:flex;align-items:center;gap:12px}
+.ai-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;color:#000;font-size:15px;
+  box-shadow:0 0 20px rgba(6,214,240,.2)}
+.ai-name{font-size:14px;font-weight:600}
+.ai-status{font-size:10px;color:var(--green2);display:flex;align-items:center;gap:5px;margin-top:2px}
+#chat-msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;min-height:0;
+  padding:4px 0}
+#chat-msgs::-webkit-scrollbar{width:4px}
+#chat-msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.msg{display:flex;gap:10px;animation:msgIn .25s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{flex-direction:row-reverse}
+.msg-av{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.msg-av.ai{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#000;font-family:var(--mono)}
+.msg-av.user{background:rgba(6,214,240,.12);border:1px solid rgba(6,214,240,.25);color:var(--cyan);font-size:9px}
+.msg-bubble{max-width:84%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.65}
+.msg.ai .msg-bubble{background:rgba(15,24,41,.9);border:1px solid var(--border);color:var(--text)}
+.msg.user .msg-bubble{background:rgba(6,214,240,.08);border:1px solid rgba(6,214,240,.2);color:var(--cyan3)}
+.msg-bubble strong{color:var(--cyan2);font-weight:600}
+.msg-bubble code{font-family:var(--mono);font-size:11px;background:rgba(6,214,240,.08);
+  border:1px solid rgba(6,214,240,.15);padding:1px 5px;border-radius:3px;color:var(--cyan2)}
+.msg-bubble p{margin-bottom:6px}
+.msg-bubble p:last-child{margin-bottom:0}
+.msg-bubble ul{padding-left:16px;margin:4px 0}
+.msg-bubble li{margin-bottom:3px}
+.typing{display:flex;gap:5px;align-items:center;padding:3px 0}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:typingBounce .8s infinite}
+.typing span:nth-child(2){animation-delay:.15s}
+.typing span:nth-child(3){animation-delay:.3s}
+@keyframes typingBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.suggestions{display:flex;flex-wrap:wrap;gap:6px}
+.sug-btn{padding:5px 11px;border-radius:6px;background:rgba(6,214,240,.05);border:1px solid rgba(6,214,240,.15);
+  color:var(--cyan);font-size:11px;cursor:pointer;transition:all .15s;font-family:var(--font)}
+.sug-btn:hover{background:rgba(6,214,240,.12);border-color:rgba(6,214,240,.3)}
+#chat-input-row{display:flex;gap:8px}
+#chat-input{flex:1;background:rgba(15,24,41,.9);border:1px solid var(--border);border-radius:9px;
+  padding:10px 14px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;transition:all .2s}
+#chat-input:focus{border-color:rgba(6,214,240,.4);box-shadow:0 0 0 3px rgba(6,214,240,.07)}
+#chat-input::placeholder{color:var(--text3)}
+#send-btn{padding:10px 18px;background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;
+  border-radius:9px;color:#000;font-weight:700;font-size:13px;cursor:pointer;transition:all .2s;white-space:nowrap}
+#send-btn:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(6,214,240,.3)}
+#send-btn:disabled{opacity:.4;cursor:default;transform:none}
+
+/* ── LANDING PAGE ─────────────────────────────── */
+#landing-inner{max-width:1000px;margin:0 auto;padding:40px 24px;display:flex;flex-direction:column;gap:0}
+.hero{text-align:center;padding:40px 0 50px}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:20px;
+  background:rgba(6,214,240,.07);border:1px solid rgba(6,214,240,.2);font-size:10px;font-weight:700;
+  letter-spacing:.1em;color:var(--cyan);text-transform:uppercase;margin-bottom:22px}
+.hero h1{font-size:clamp(32px,5vw,60px);font-weight:600;line-height:1.08;letter-spacing:-.025em;margin-bottom:14px}
+.hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--cyan),var(--blue));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{font-size:16px;color:var(--text2);line-height:1.7;max-width:520px;margin:0 auto 30px}
+.cta-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.btn-primary{padding:13px 30px;background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;
+  border-radius:9px;color:#000;font-weight:700;font-size:14px;cursor:pointer;transition:all .2s;letter-spacing:.02em;font-family:var(--font)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 36px rgba(6,214,240,.3)}
+.btn-outline{padding:13px 30px;background:transparent;border:1px solid var(--border2);border-radius:9px;
+  color:var(--text2);font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;font-family:var(--font)}
+.btn-outline:hover{border-color:var(--cyan);color:var(--cyan)}
+
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:50px}
+.feat-card{padding:20px;border-radius:11px;background:rgba(15,24,41,.7);border:1px solid var(--border);
+  transition:all .25s;cursor:default}
+.feat-card:hover{border-color:rgba(6,214,240,.3);transform:translateY(-3px)}
+.feat-icon{font-size:22px;margin-bottom:12px}
+.feat-title{font-size:13px;font-weight:600;margin-bottom:5px}
+.feat-desc{font-size:11px;color:var(--text2);line-height:1.6}
+
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:40px}
+.price-card{padding:24px;border-radius:13px;background:rgba(15,24,41,.8);border:1px solid var(--border);position:relative}
+.price-card.featured{border-color:rgba(6,214,240,.4);background:rgba(6,214,240,.03)}
+.price-popular{position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+  padding:3px 14px;border-radius:20px;font-size:9px;font-weight:700;color:#000;letter-spacing:.1em;
+  background:linear-gradient(135deg,var(--cyan),var(--blue))}
+.price-tier{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--text2);text-transform:uppercase;margin-bottom:6px}
+.price-amount{font-family:var(--mono);font-size:38px;font-weight:700;margin-bottom:2px}
+.price-amount sup{font-size:18px;color:var(--text2)}
+.price-period{font-size:11px;color:var(--text3);margin-bottom:18px}
+.price-features{display:flex;flex-direction:column;gap:7px;margin-bottom:20px}
+.pf{font-size:11px;display:flex;align-items:center;gap:7px}
+.pf.ok{color:var(--text2)}
+.pf.no{color:var(--text3);opacity:.45}
+.pf-check{font-size:10px}
+.pf.ok .pf-check{color:var(--green2)}
+.plan-btn{width:100%;padding:10px;border-radius:8px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+
+/* ── UPGRADE PAGE ─────────────────────────────── */
+#upgrade-inner{max-width:900px;margin:0 auto;padding:32px 24px}
+
+/* ── ADMIN PAGE ───────────────────────────────── */
+#admin-inner{max-width:1100px;margin:0 auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px}
+.admin-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.admin-stat{padding:16px;border-radius:10px;background:rgba(15,24,41,.85);border:1px solid var(--border)}
+.admin-stat-val{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--cyan);margin-bottom:3px}
+.admin-stat-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
+.users-table{width:100%;border-collapse:collapse;font-size:12px}
+.users-table th{padding:9px 12px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.1em;
+  color:var(--text3);text-transform:uppercase;border-bottom:1px solid var(--border)}
+.users-table td{padding:9px 12px;border-bottom:1px solid rgba(30,53,88,.3)}
+.users-table tr:hover td{background:rgba(6,214,240,.02)}
+.users-table tr:last-child td{border-bottom:none}
+.u-avatar{width:26px;height:26px;border-radius:50%;background:rgba(6,214,240,.1);border:1px solid rgba(6,214,240,.2);
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--cyan)}
+.action-btn{padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;
+  font-size:10px;color:var(--text2);cursor:pointer;transition:all .15s;font-family:var(--font)}
+.action-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.action-btn.danger:hover{border-color:var(--red2);color:var(--red2)}
+
+/* TOAST */
+#toast{position:fixed;bottom:20px;right:20px;padding:11px 18px;border-radius:9px;
+  background:var(--surface);border:1px solid var(--cyan);color:var(--cyan);font-size:12px;
+  z-index:9999;display:none;animation:toastIn .25s ease;box-shadow:0 4px 24px rgba(6,214,240,.15)}
+#toast.err{border-color:var(--red2);color:var(--red2)}
+@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* SCROLLABLE PAGE */
+.scroll-page{overflow-y:auto}
+
+/* API KEY NOTE */
+.api-note{background:rgba(240,160,32,.06);border:1px solid rgba(240,160,32,.2);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--yellow2);line-height:1.6;margin-bottom:12px}
+.api-note a{color:var(--cyan);text-decoration:none}
+.api-note a:hover{text-decoration:underline}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  #dashboard-inner{grid-template-columns:1fr 1fr;grid-template-rows:auto}
+  #metrics-row{grid-column:1/3;grid-template-columns:repeat(3,1fr)}
+  #chart-card{grid-column:1/3}
+  #right-col{grid-column:1/3;flex-direction:row;flex-wrap:wrap;overflow-x:hidden}
+  #right-col .card{flex:1;min-width:200px}
+  #indicators-row{grid-column:1/3}
+}
+@media(max-width:600px){
+  #metrics-row{grid-template-columns:repeat(2,1fr)}
+  #topbar-price{display:none}
+  .nav-btn{padding:5px 9px;font-size:11px}
+}
+
+/* ── AUTH OVERLAY ──────────────────────────────────────────────────── */
+#auth-overlay{position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;background:rgba(3,7,18,.95);backdrop-filter:blur(16px)}
+#auth-box{background:#0f1829;border:1px solid #243d66;border-radius:16px;padding:36px 32px;width:100%;max-width:400px;animation:authIn .3s ease}
+@keyframes authIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}
+.a-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px;justify-content:center}
+.a-logo-icon{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#06d6f0,#3b7ef8);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;color:#000;font-size:15px}
+.a-logo-text{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.12em}
+.a-logo-text span:first-child{color:#06d6f0}
+.a-logo-text span:last-child{color:#8aaccc}
+.a-tabs{display:flex;background:rgba(0,0,0,.3);border-radius:8px;padding:3px;margin-bottom:24px;gap:3px}
+.a-tab{flex:1;padding:8px;border-radius:6px;border:none;background:transparent;color:#8aaccc;font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:center}
+.a-tab.active{background:#151f33;color:#06d6f0;border:1px solid rgba(6,214,240,.2)}
+.a-field{margin-bottom:14px}
+.a-field label{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;color:#4a6888;text-transform:uppercase;margin-bottom:6px}
+.a-input{width:100%;padding:10px 14px;background:rgba(0,0,0,.3);border:1px solid #1e3558;border-radius:8px;color:#e8f4ff;font-family:var(--font);font-size:13px;outline:none;transition:all .2s}
+.a-input:focus{border-color:rgba(6,214,240,.45);box-shadow:0 0 0 3px rgba(6,214,240,.08)}
+.a-input::placeholder{color:#4a6888}
+.a-btn{width:100%;padding:12px;background:linear-gradient(135deg,#06d6f0,#3b7ef8);border:none;border-radius:9px;color:#000;font-weight:700;font-size:14px;cursor:pointer;font-family:var(--font);margin-top:4px;transition:all .2s}
+.a-btn:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(6,214,240,.3)}
+.a-err{color:#ff6080;font-size:12px;text-align:center;margin-top:8px;min-height:16px}
+.a-or{display:flex;align-items:center;gap:10px;margin:16px 0;color:#4a6888;font-size:11px}
+.a-or::before,.a-or::after{content:'';flex:1;height:1px;background:#1e3558}
+.a-google{width:100%;padding:10px;background:transparent;border:1px solid #243d66;border-radius:9px;color:#8aaccc;font-family:var(--font);font-size:13px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.a-google:hover{border-color:#06d6f0;color:#06d6f0}
+.a-note{font-size:11px;color:#4a6888;text-align:center;margin-top:14px;line-height:1.6}
+.a-note strong{color:#06d6f0}
+/* user chip in topbar */
+.u-chip{display:flex;align-items:center;gap:7px;padding:4px 11px 4px 5px;border-radius:20px;background:rgba(6,214,240,.06);border:1px solid rgba(6,214,240,.15);cursor:pointer;transition:all .15s}
+.u-chip:hover{background:rgba(6,214,240,.1)}
+.u-av{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#06d6f0,#3b7ef8);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000}
+.u-nm{font-size:11px;color:#8aaccc;font-weight:500}
+.u-pip{width:5px;height:5px;border-radius:50%}
+.u-out{padding:5px 10px;border-radius:5px;border:1px solid #1e3558;background:transparent;color:#4a6888;font-size:10px;cursor:pointer;font-family:var(--font);transition:all .15s}
+.u-out:hover{border-color:#ff6080;color:#ff6080}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <a class="logo" href="#" onclick="showPage('landing');return false">
+      <div class="logo-icon">₿</div>
+      <div class="logo-text"><span>SATOSHI</span><span>TERMINAL</span></div>
+    </a>
+    <div id="nav">
+      <button class="nav-btn active" onclick="showPage('landing')">Home</button>
+      <button class="nav-btn" onclick="showPage('dashboard')">Dashboard</button>
+      <button class="nav-btn" onclick="showPage('ai')">AI Chat</button>
+      <button class="nav-btn" onclick="showPage('upgrade')">Pricing</button>
+      <button class="nav-btn" id="admin-nav-btn" onclick="showPage('admin')" style="display:none">Admin</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div id="topbar-price">
+        <span style="font-size:9px;color:var(--text3)">BTC/USD</span>
+        <span id="tb-price">&mdash;</span>
+        <span id="tb-change" class="badge badge-green">+0.00%</span>
+      </div>
+      <div class="u-chip" id="u-chip" onclick="showPage('upgrade')">
+        <div class="u-av" id="u-av">?</div>
+        <span class="u-nm" id="u-nm">User</span>
+        <div class="u-pip" id="u-pip" style="background:#4a6888"></div>
+      </div>
+      <button class="u-out" onclick="aLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- LIVE TICKER -->
+  <div id="ticker-wrap">
+    <div id="ticker-track"></div>
+  </div>
+
+  <!-- ═══════════════════════════════ LANDING ═══ -->
+  <div class="page scroll-page active" id="page-landing">
+    <div id="landing-inner">
+      <div class="hero">
+        <div class="hero-badge"><span class="live-dot"></span>Live · AI-Powered · Institutional Grade</div>
+        <h1>The <em>Bitcoin Intelligence</em><br>Terminal</h1>
+        <p>Real-time analytics, AI-powered market analysis, and institutional-grade tools for serious Bitcoin traders.</p>
+        <div class="cta-row">
+          <button class="btn-primary" onclick="showPage('dashboard')">Launch Dashboard →</button>
+          <button class="btn-outline" onclick="showPage('ai')">Try AI Chat</button>
+        </div>
+      </div>
+
+      <div class="features-grid">
+        <div class="feat-card"><div class="feat-icon"></div><div class="feat-title">Live BTC Dashboard</div><div class="feat-desc">Real-time Binance WebSocket feeds, candlestick charts, RSI/MACD/EMA indicators and market depth.</div></div>
+        <div class="feat-card"><div class="feat-icon"></div><div class="feat-title">AI Bitcoin Analyst</div><div class="feat-desc">Claude-powered chatbot specialized exclusively in Bitcoin — market analysis, trade ideas, and education.</div></div>
+        <div class="feat-card"><div class="feat-icon"></div><div class="feat-title">Whale Alerts</div><div class="feat-desc">Track large BTC on-chain movements in real-time. See when institutions accumulate or distribute.</div></div>
+        <div class="feat-card"><div class="feat-icon">⚡</div><div class="feat-title">WebSocket Feeds</div><div class="feat-desc">Direct Binance WebSocket connection with automatic reconnect. Sub-second price updates.</div></div>
+        <div class="feat-card"><div class="feat-icon"></div><div class="feat-title">Secure Auth</div><div class="feat-desc">Supabase authentication with Google OAuth, email/password, and JWT-based session management.</div></div>
+        <div class="feat-card"><div class="feat-icon"></div><div class="feat-title">Premium Signals</div><div class="feat-desc">Exclusive support/resistance zones, liquidation heatmaps, and on-chain analytics for subscribers.</div></div>
+      </div>
+
+      <h2 style="text-align:center;font-size:22px;font-weight:600;margin-bottom:6px">Simple Pricing</h2>
+      <p style="text-align:center;color:var(--text2);font-size:13px;margin-bottom:26px">Start free. Upgrade when you're ready.</p>
+      <div class="pricing-grid">
+        <div class="price-card">
+          <div class="price-tier">Free</div>
+          <div class="price-amount"><sup>$</sup>0</div>
+          <div class="price-period">forever</div>
+          <div class="price-features">
+            <div class="pf ok"><span class="pf-check">✓</span>Live BTC price & charts</div>
+            <div class="pf ok"><span class="pf-check">✓</span>AI chat (10/day)</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Fear & Greed index</div>
+            <div class="pf no"><span class="pf-check">✗</span>Whale alerts</div>
+            <div class="pf no"><span class="pf-check">✗</span>On-chain analytics</div>
+          </div>
+          <button class="plan-btn btn-outline" onclick="toast('Free plan active!')">Get Started</button>
+        </div>
+        <div class="price-card featured">
+          <div class="price-popular">MOST POPULAR</div>
+          <div class="price-tier" style="color:var(--cyan)">Pro</div>
+          <div class="price-amount" style="color:var(--cyan)"><sup>$</sup>49</div>
+          <div class="price-period">/month</div>
+          <div class="price-features">
+            <div class="pf ok"><span class="pf-check">✓</span>Everything in Free</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Unlimited AI chat</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Real-time whale alerts</div>
+            <div class="pf ok"><span class="pf-check">✓</span>On-chain analytics</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Premium signals</div>
+          </div>
+          <button class="plan-btn btn-primary" onclick="stripeCheckout('pro')">Subscribe Now</button>
+        </div>
+        <div class="price-card">
+          <div class="price-tier">Institutional</div>
+          <div class="price-amount"><sup>$</sup>299</div>
+          <div class="price-period">/month</div>
+          <div class="price-features">
+            <div class="pf ok"><span class="pf-check">✓</span>Everything in Pro</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Full API access</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Dedicated support</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Multi-user teams</div>
+            <div class="pf ok"><span class="pf-check">✓</span>White-label reports</div>
+          </div>
+          <button class="plan-btn btn-outline" onclick="toast('Contact: sales@satoshiterminal.com')">Contact Sales</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════ DASHBOARD ════ -->
+  <div class="page" id="page-dashboard">
+    <div id="dashboard-inner">
+
+      <!-- METRICS ROW -->
+      <div id="metrics-row">
+        <div class="metric">
+          <div class="metric-label">BTC Price</div>
+          <div class="metric-val col-cyan" id="m-price">—</div>
+          <div class="metric-sub" id="m-change">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">24h High</div>
+          <div class="metric-val" id="m-high">—</div>
+          <div class="metric-sub col-text2">24h high</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">24h Low</div>
+          <div class="metric-val" id="m-low">—</div>
+          <div class="metric-sub col-text2">24h low</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">ETH Price</div>
+          <div class="metric-val" id="m-eth">—</div>
+          <div class="metric-sub" id="m-eth-chg">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Volume 24h</div>
+          <div class="metric-val" id="m-vol">—</div>
+          <div class="metric-sub col-text2">USDT equiv.</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">BTC Dom.</div>
+          <div class="metric-val col-cyan" id="m-dom">62.3%</div>
+          <div class="metric-sub col-green">+1.2% today</div>
+        </div>
+      </div>
+
+      <!-- MAIN CHART -->
+      <div class="card" id="chart-card">
+        <div class="card-hd">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="card-label">BTC/USDT</span>
+            <span id="chart-price" style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--cyan)">—</span>
+            <span id="chart-chg" class="badge badge-green" style="font-size:9px">—</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="tf-btns">
+              <button class="tf-btn" onclick="setTF('1m')">1M</button>
+              <button class="tf-btn" onclick="setTF('5m')">5M</button>
+              <button class="tf-btn" onclick="setTF('15m')">15M</button>
+              <button class="tf-btn active" onclick="setTF('1h')">1H</button>
+              <button class="tf-btn" onclick="setTF('4h')">4H</button>
+              <button class="tf-btn" onclick="setTF('1d')">1D</button>
+            </div>
+            <div id="conn-badge" class="conn-badge connecting">⬤ CONNECTING</div>
+          </div>
+        </div>
+        <div id="chart-container"></div>
+      </div>
+
+      <!-- INDICATORS ROW -->
+      <div id="indicators-row">
+        <!-- FEAR & GREED -->
+        <div class="card">
+          <div class="card-hd"><span class="card-label">Fear & Greed</span></div>
+          <div class="card-body">
+            <div class="gauge-wrap">
+              <svg class="gauge-svg" viewBox="0 0 100 55" width="95" height="53">
+                <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#f04060"/>
+                  <stop offset="50%" stop-color="#f0a020"/>
+                  <stop offset="100%" stop-color="#0fba81"/>
+                </linearGradient></defs>
+                <path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="9" stroke-linecap="round"/>
+                <path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="url(#gg)" stroke-width="9" stroke-linecap="round"
+                  stroke-dasharray="126" id="gauge-arc" stroke-dashoffset="32"/>
+                <line id="gauge-needle" x1="50" y1="50" x2="76" y2="22" stroke="#f0a020" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="50" cy="50" r="4" fill="#f0a020" id="gauge-dot"/>
+              </svg>
+              <div class="gauge-info">
+                <div class="gauge-num" id="fg-val" style="color:var(--yellow2)">76</div>
+                <div class="gauge-lbl" id="fg-label" style="color:var(--yellow2)">Greed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TECHNICAL INDICATORS -->
+        <div class="card">
+          <div class="card-hd"><span class="card-label">Indicators</span></div>
+          <div class="card-body">
+            <div class="ind-bar-wrap">
+              <div class="ind-row">
+                <span class="ind-name">RSI (14)</span>
+                <span class="ind-val col-yellow" id="rsi-val">61.4</span>
+              </div>
+              <div class="ind-bar"><div class="ind-fill" id="rsi-fill" style="width:61%;background:linear-gradient(90deg,var(--green),var(--yellow2))"></div></div>
+
+              <div class="ind-row">
+                <span class="ind-name">MACD Signal</span>
+                <span class="ind-val col-green">Bullish ↑</span>
+              </div>
+              <div class="ind-bar"><div class="ind-fill" style="width:68%;background:linear-gradient(90deg,var(--cyan),var(--green))"></div></div>
+
+              <div class="ind-row">
+                <span class="ind-name">BB Position</span>
+                <span class="ind-val col-yellow">Upper</span>
+              </div>
+              <div class="ind-bar"><div class="ind-fill" style="width:76%;background:linear-gradient(90deg,var(--blue),var(--yellow2))"></div></div>
+
+              <div class="ind-row">
+                <span class="ind-name">Volume Trend</span>
+                <span class="ind-val col-green">Above Avg</span>
+              </div>
+              <div class="ind-bar"><div class="ind-fill" style="width:58%;background:linear-gradient(90deg,var(--cyan),var(--blue))"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VOLATILITY -->
+        <div class="card">
+          <div class="card-hd"><span class="card-label">Volatility & Dominance</span></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+            <div>
+              <div class="ind-row">
+                <span class="ind-name">30d Volatility</span>
+                <span class="ind-val col-yellow">42.8% ann.</span>
+              </div>
+              <div class="ind-bar"><div class="ind-fill" style="width:43%;background:linear-gradient(90deg,var(--cyan),var(--yellow2))"></div></div>
+            </div>
+            <div>
+              <div class="ind-row">
+                <span class="ind-name">BTC Dominance</span>
+                <span class="ind-val col-cyan">62.3%</span>
+              </div>
+              <div class="ind-bar"><div class="ind-fill" style="width:62%;background:linear-gradient(90deg,var(--blue),var(--cyan))"></div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px">
+              <div><div class="ind-name" style="margin-bottom:2px">Hash Rate</div><div style="font-family:var(--mono);font-size:11px;color:var(--cyan)">842 EH/s</div><div style="font-size:9px;color:var(--green2)">ATH</div></div>
+              <div><div class="ind-name" style="margin-bottom:2px">MVRV Ratio</div><div style="font-family:var(--mono);font-size:11px;color:var(--yellow2)">2.84</div><div style="font-size:9px;color:var(--text3)">Neutral zone</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div id="right-col">
+
+        <!-- SPARKLINE -->
+        <div class="card">
+          <div class="card-hd">
+            <span class="card-label">Live Price</span>
+            <div id="spark-status" class="conn-badge connecting" style="font-size:8px;padding:2px 6px">⬤ LIVE</div>
+          </div>
+          <div class="card-body" style="padding:8px 10px">
+            <canvas id="spark-canvas" class="spark-canvas"></canvas>
+            <div style="display:flex;justify-content:space-between;margin-top:4px;font-family:var(--mono);font-size:9px;color:var(--text3)">
+              <span id="spark-lo">—</span><span id="spark-hi">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- KEY LEVELS -->
+        <div class="card">
+          <div class="card-hd"><span class="card-label">Key Levels</span></div>
+          <div class="card-body">
+            <div class="levels-list">
+              <div class="level-row"><span class="level-name" style="font-size:10px">R2 (Strong)</span><span class="level-price col-red">$115,000</span></div>
+              <div class="level-row"><span class="level-name" style="font-size:10px">R1</span><span class="level-price col-red">$108,500</span></div>
+              <hr class="level-divider">
+              <div class="level-row"><span class="level-name col-cyan" style="font-size:10px">Current</span><span class="level-price col-cyan" id="levels-price">—</span></div>
+              <hr class="level-divider">
+              <div class="level-row"><span class="level-name" style="font-size:10px">S1</span><span class="level-price col-green">$98,000</span></div>
+              <div class="level-row"><span class="level-name" style="font-size:10px">EMA 50</span><span class="level-price col-green">$96,400</span></div>
+              <div class="level-row"><span class="level-name" style="font-size:10px">EMA 200</span><span class="level-price" style="color:var(--blue2)">$87,200</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- WHALE ALERTS -->
+        <div class="card">
+          <div class="card-hd"><span class="card-label"> Whale Alerts</span><span class="badge badge-cyan" style="font-size:8px">LIVE</span></div>
+          <div class="card-body" style="padding:8px 10px">
+            <div class="whale-list" id="whale-list"></div>
+          </div>
+        </div>
+
+        <!-- LIVE TRADES -->
+        <div class="card">
+          <div class="card-hd"><span class="card-label">Order Flow</span><span id="trade-count" class="badge badge-green" style="font-size:8px">0 trades</span></div>
+          <div class="card-body" style="padding:6px 10px">
+            <div style="display:grid;grid-template-columns:38px 1fr 1fr 1fr;gap:4px;margin-bottom:4px">
+              <span style="font-size:8px;color:var(--text3);font-weight:700">SIDE</span>
+              <span style="font-size:8px;color:var(--text3);font-weight:700">PRICE</span>
+              <span style="font-size:8px;color:var(--text3);font-weight:700">QTY</span>
+              <span style="font-size:8px;color:var(--text3);font-weight:700">USD</span>
+            </div>
+            <div class="trade-list" id="trade-list"></div>
+          </div>
+        </div>
+
+        <!-- ON-CHAIN -->
+        <div class="card">
+          <div class="card-hd"><span class="card-label">On-Chain Metrics</span></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:7px">
+            <div class="level-row"><span class="level-name" style="font-size:10px">Exchange Netflow</span><span class="level-price col-green" style="font-size:10px">-15.2K BTC</span></div>
+            <div class="level-row"><span class="level-name" style="font-size:10px">SOPR</span><span class="level-price col-green" style="font-size:10px">1.034</span></div>
+            <div class="level-row"><span class="level-name" style="font-size:10px">Avg Fee</span><span class="level-price col-yellow" style="font-size:10px">42 sat/vB</span></div>
+            <div class="level-row"><span class="level-name" style="font-size:10px">Lightning Cap.</span><span class="level-price col-cyan" style="font-size:10px">5,421 BTC</span></div>
+            <div class="level-row"><span class="level-name" style="font-size:10px">1K+ BTC Wallets</span><span class="level-price col-green" style="font-size:10px">+3.2% (30d)</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════ AI CHAT ═══ -->
+  <div class="page" id="page-ai">
+    <div id="ai-inner">
+      <div class="api-note">
+         <strong>To enable real AI responses:</strong> Open this file in a text editor and set <code>ANTHROPIC_API_KEY</code> at the top of the script. Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Without a key, smart mock responses are used.
+      </div>
+      <div id="ai-header">
+        <div id="ai-info">
+          <div class="ai-avatar">₿</div>
+          <div>
+            <div class="ai-name">Bitcoin AI Analyst</div>
+            <div class="ai-status"><span class="live-dot" style="background:var(--green)"></span>Online · Powered by Claude</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="chat-counter" style="font-family:var(--mono);font-size:10px;color:var(--text3)">10 / 10 free</span>
+          <button onclick="clearChat()" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text3);font-size:11px;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">Clear</button>
+        </div>
+      </div>
+      <div id="chat-msgs"></div>
+      <div class="suggestions" id="suggestions">
+        <button class="sug-btn" onclick="sendSug(this)">Current BTC market structure?</button>
+        <button class="sug-btn" onclick="sendSug(this)">Key support & resistance levels</button>
+        <button class="sug-btn" onclick="sendSug(this)">How do whales affect price?</button>
+        <button class="sug-btn" onclick="sendSug(this)">Explain BTC halving effects</button>
+        <button class="sug-btn" onclick="sendSug(this)">Best on-chain signals now?</button>
+        <button class="sug-btn" onclick="sendSug(this)">Generate a trade setup</button>
+      </div>
+      <div id="chat-input-row">
+        <input id="chat-input" placeholder="Ask anything about Bitcoin..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}">
+        <button id="send-btn" onclick="sendChat()">Send ↑</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════ UPGRADE ═══ -->
+  <div class="page scroll-page" id="page-upgrade">
+    <div id="upgrade-inner">
+      <div style="text-align:center;margin-bottom:36px">
+        <h2 style="font-size:28px;font-weight:600;margin-bottom:8px">Unlock the Full Terminal</h2>
+        <p style="color:var(--text2);font-size:14px">Unlimited AI, whale tracking, on-chain analytics. Cancel anytime.</p>
+      </div>
+      <div class="pricing-grid" style="max-width:860px;margin:0 auto 40px">
+        <div class="price-card">
+          <div class="price-tier">Free</div>
+          <div class="price-amount"><sup>$</sup>0</div>
+          <div class="price-period">forever</div>
+          <div class="price-features">
+            <div class="pf ok"><span class="pf-check">✓</span>Live BTC/ETH price feeds</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Candlestick chart</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Fear & Greed index</div>
+            <div class="pf ok"><span class="pf-check">✓</span>AI chat (10 msgs/day)</div>
+            <div class="pf no"><span class="pf-check">✗</span>Whale alerts</div>
+            <div class="pf no"><span class="pf-check">✗</span>On-chain analytics</div>
+            <div class="pf no"><span class="pf-check">✗</span>Unlimited AI chat</div>
+            <div class="pf no"><span class="pf-check">✗</span>API access</div>
+          </div>
+          <button class="plan-btn btn-outline" onclick="toast('You are on the free plan!')">Current Plan</button>
+        </div>
+        <div class="price-card featured">
+          <div class="price-popular">MOST POPULAR</div>
+          <div class="price-tier" style="color:var(--cyan)">Pro</div>
+          <div class="price-amount" style="color:var(--cyan)"><sup>$</sup>49</div>
+          <div class="price-period">/month · billed monthly</div>
+          <div class="price-features">
+            <div class="pf ok"><span class="pf-check">✓</span>Everything in Free</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Unlimited AI Bitcoin analyst</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Real-time whale alerts $10M+</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Live order flow feed</div>
+            <div class="pf ok"><span class="pf-check">✓</span>On-chain analytics</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Premium trade signals</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Priority support</div>
+            <div class="pf no"><span class="pf-check">✗</span>API access</div>
+          </div>
+          <button class="plan-btn btn-primary" onclick="stripeCheckout('pro')">Subscribe — $49/mo →</button>
+        </div>
+        <div class="price-card">
+          <div class="price-tier">Institutional</div>
+          <div class="price-amount"><sup>$</sup>299</div>
+          <div class="price-period">/month</div>
+          <div class="price-features">
+            <div class="pf ok"><span class="pf-check">✓</span>Everything in Pro</div>
+            <div class="pf ok"><span class="pf-check">✓</span>REST API (100k req/day)</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Alert webhooks</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Dedicated analyst support</div>
+            <div class="pf ok"><span class="pf-check">✓</span>10-seat team access</div>
+            <div class="pf ok"><span class="pf-check">✓</span>White-label reports</div>
+            <div class="pf ok"><span class="pf-check">✓</span>SLA guarantee</div>
+            <div class="pf ok"><span class="pf-check">✓</span>Invoice billing</div>
+          </div>
+          <button class="plan-btn btn-outline" onclick="toast('Contact: sales@satoshiterminal.com')">Contact Sales</button>
+        </div>
+      </div>
+      <div style="padding:16px;border-radius:10px;background:rgba(6,214,240,.04);border:1px solid rgba(6,214,240,.15);max-width:860px;margin:0 auto 24px">
+        <div style="font-size:12px;color:#06d6f0;font-weight:600;margin-bottom:8px">&#128295; Stripe Setup</div>
+        <div style="font-size:11px;color:#8aaccc;line-height:1.7">
+          1. Go to <a href="https://dashboard.stripe.com/payment-links" target="_blank" style="color:#06d6f0">dashboard.stripe.com/payment-links</a> and create $49/mo (Pro) and $299/mo (Institutional) payment links.<br>
+          2. Open this HTML file in any text editor.<br>
+          3. Find <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px;color:#06d6f0">STRIPE_LINK_PRO</code> and <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px;color:#06d6f0">STRIPE_LINK_INSTITUTIONAL</code> near the top of the &lt;script&gt;.<br>
+          4. Paste your Stripe Payment Link URLs and save. Done.
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;max-width:860px;margin:0 auto">
+        <div style="padding:18px;border-radius:10px;background:rgba(15,24,41,.7);border:1px solid var(--border);display:flex;gap:12px">
+          <span style="font-size:20px;flex-shrink:0"></span>
+          <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Secure Payments</div><div style="font-size:11px;color:var(--text2)">Powered by Stripe. PCI DSS compliant. Cards never stored on our servers.</div></div>
+        </div>
+        <div style="padding:18px;border-radius:10px;background:rgba(15,24,41,.7);border:1px solid var(--border);display:flex;gap:12px">
+          <span style="font-size:20px;flex-shrink:0">↩️</span>
+          <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Cancel Anytime</div><div style="font-size:11px;color:var(--text2)">No contracts or hidden fees. Cancel in one click from the billing portal.</div></div>
+        </div>
+        <div style="padding:18px;border-radius:10px;background:rgba(15,24,41,.7);border:1px solid var(--border);display:flex;gap:12px">
+          <span style="font-size:20px;flex-shrink:0">⚡</span>
+          <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Instant Access</div><div style="font-size:11px;color:var(--text2)">Your plan upgrades immediately after payment. No waiting or setup.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ ADMIN ══════ -->
+  <div class="page scroll-page" id="page-admin">
+    <div id="admin-inner">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <h2 style="font-size:15px;font-weight:600">Admin Panel</h2>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Platform Management · Satoshi Terminal</div>
+        </div>
+        <span class="badge badge-green">● System Online</span>
+      </div>
+      <div class="admin-stats-grid">
+        <div class="admin-stat"><div class="admin-stat-val" id="stat-users">0</div><div class="admin-stat-label">Total Users</div></div>
+        <div class="admin-stat"><div class="admin-stat-val" id="stat-subs">0</div><div class="admin-stat-label">Paid Subscribers</div></div>
+        <div class="admin-stat"><div class="admin-stat-val" style="color:var(--yellow2)" id="stat-mrr">$0</div><div class="admin-stat-label">Est. Monthly Revenue</div></div>
+        <div class="admin-stat"><div class="admin-stat-val" style="color:var(--green2)">99.9%</div><div class="admin-stat-label">Uptime</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div class="card"><div class="card-hd"><span class="card-label">API Requests (24h)</span></div><div class="card-body"><div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--cyan)">2.84M</div><div style="font-size:10px;color:var(--text3);margin-top:3px">↑ 12% vs yesterday</div></div></div>
+        <div class="card"><div class="card-hd"><span class="card-label">AI Chat Sessions</span></div><div class="card-body"><div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--blue2)">18,421</div><div style="font-size:10px;color:var(--text3);margin-top:3px">Avg 3.2 msgs/session</div></div></div>
+        <div class="card"><div class="card-hd"><span class="card-label">Daily Active Users</span></div><div class="card-body"><div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--green2)" id="stat-dau">0</div><div style="font-size:10px;color:var(--text3);margin-top:3px">active users</div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-label">User Management</span>
+          <button class="action-btn" onclick="exportCSV()">Export CSV</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="users-table" id="admin-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay">
+  <div id="auth-box">
+    <div class="a-logo">
+      <div class="a-logo-icon">&#8383;</div>
+      <div class="a-logo-text"><span>SATOSHI</span><span>TERMINAL</span></div>
+    </div>
+    <div class="a-tabs">
+      <button class="a-tab active" onclick="aTab('login')">Sign In</button>
+      <button class="a-tab" onclick="aTab('signup')">Create Account</button>
+    </div>
+    <div id="a-login">
+      <div class="a-field"><label>Email</label>
+        <input class="a-input" id="a-email" type="email" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="a-field"><label>Password</label>
+        <input class="a-input" id="a-pass" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"
+          onkeydown="if(event.key==='Enter')aLogin()"></div>
+      <button class="a-btn" onclick="aLogin()">Sign In</button>
+      <div class="a-err" id="a-err"></div>
+      <div class="a-or">or</div>
+      <button class="a-google" onclick="toast('Connect Supabase to enable Google OAuth')">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+      <div class="a-note">Demo admin: <strong>admin@satoshi.com</strong> / <strong>admin123</strong></div>
+    </div>
+    <div id="a-signup" style="display:none">
+      <div class="a-field"><label>Full Name</label>
+        <input class="a-input" id="a-name" type="text" placeholder="Satoshi Nakamoto"></div>
+      <div class="a-field"><label>Email</label>
+        <input class="a-input" id="a-su-email" type="email" placeholder="you@example.com"></div>
+      <div class="a-field"><label>Password</label>
+        <input class="a-input" id="a-su-pass" type="password" placeholder="Min 6 characters"
+          onkeydown="if(event.key==='Enter')aSignup()"></div>
+      <button class="a-btn" onclick="aSignup()">Create Account</button>
+      <div class="a-err" id="a-su-err"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#app -->
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  SATOSHI TERMINAL — Main Application Script
+//  Set your Anthropic API key below to enable AI
+// ═══════════════════════════════════════════════
+const ANTHROPIC_API_KEY = '' // ← Paste your sk-ant-... key here
+
+// ── STATE ────────────────────────────────────────
+let ws = null
+let wsReconnectTimer = null
+let wsReconnectAttempts = 0
+let chart = null
+let candleSeries = null
+let currentTF = '1h'
+let tradeCount = 0
+let sparkData = []
+let chatHistory = []
+let chatMsgCount = 0
+const FREE_CHAT_LIMIT = 10
+
+const tickers = { BTCUSDT: null, ETHUSDT: null }
+const whaleAlerts = [
+  {from:'Binance',to:'Cold Wallet',btc:1240,usd:128.7,dir:'out',ts:'2m ago'},
+  {from:'Unknown',to:'Coinbase',btc:800,usd:83.1,dir:'in',ts:'7m ago'},
+  {from:'MicroStrategy',to:'Cold Wallet',btc:2100,usd:217.9,dir:'out',ts:'14m ago'},
+  {from:'Kraken',to:'Unknown',btc:560,usd:58.2,dir:'out',ts:'22m ago'},
+  {from:'BlackRock IBIT',to:'Custody',btc:3200,usd:332.3,dir:'out',ts:'35m ago'},
+  {from:'Miner Pool',to:'Exchange',btc:420,usd:43.6,dir:'in',ts:'51m ago'},
+  {from:'Binance',to:'Unknown',btc:970,usd:100.8,dir:'out',ts:'1h 8m ago'},
+]
+const adminUsers = [
+  {name:'Alex Chen',email:'alex@hedge.io',plan:'institutional',status:'active',joined:'Jan 2025',chats:142},
+  {name:'Maria Santos',email:'maria@vc.com',plan:'pro',status:'active',joined:'Feb 2025',chats:87},
+  {name:'David Kim',email:'david@fund.io',plan:'pro',status:'active',joined:'Mar 2025',chats:203},
+  {name:'Sarah Blake',email:'sarah@btc.org',plan:'free',status:'active',joined:'Apr 2025',chats:9},
+  {name:'James Wright',email:'james@spam.net',plan:'free',status:'banned',joined:'May 2025',chats:1},
+  {name:'Lena Park',email:'lena@analytics.io',plan:'pro',status:'active',joined:'May 2025',chats:61},
+  {name:'Tom Rivera',email:'tom@macro.vc',plan:'institutional',status:'active',joined:'Jan 2025',chats:318},
+]
+
+// ── PAGE ROUTING ──────────────────────────────────
+function showPage(id) {
+  if(id==='admin'&&(!currentUser||!currentUser.isAdmin)){toast('Admin access only',true);return}
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById('page-' + id).classList.add('active')
+  const btns = document.querySelectorAll('#nav .nav-btn')
+  const map = {landing:0, dashboard:1, ai:2, upgrade:3, admin:4}
+  if (map[id] !== undefined) btns[map[id]].classList.add('active')
+  if (id === 'dashboard') { initChart(); renderWhales(); renderAdminTable() }
+  if (id === 'ai' && chatHistory.length === 0) initChat()
+  if (id === 'admin'){document.getElementById('admin-nav-btn').classList.add('active');renderAdminLive()}
+}
+
+// ── TOAST ─────────────────────────────────────────
+function toast(msg, err) {
+  const el = document.getElementById('toast')
+  el.textContent = msg
+  el.className = err ? 'err' : ''
+  el.style.display = 'block'
+  clearTimeout(el._t)
+  el._t = setTimeout(() => el.style.display = 'none', 3000)
+}
+
+// ── FORMAT HELPERS ────────────────────────────────
+function fmtPrice(p) { return '$' + p.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) }
+function fmtPriceInt(p) { return '$' + Math.round(p).toLocaleString('en-US') }
+function fmtVol(v) {
+  if (v >= 1e12) return '$' + (v/1e12).toFixed(2) + 'T'
+  if (v >= 1e9)  return '$' + (v/1e9).toFixed(1) + 'B'
+  if (v >= 1e6)  return '$' + (v/1e6).toFixed(0) + 'M'
+  return '$' + v.toFixed(0)
+}
+
+// ── WEBSOCKET ─────────────────────────────────────
+function connectWS() {
+  setConnStatus('connecting')
+  const streams = 'btcusdt@ticker/ethusdt@ticker/btcusdt@trade'
+  try {
+    ws = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`)
+    ws.onopen = () => {
+      wsReconnectAttempts = 0
+      setConnStatus('live')
+    }
+    ws.onmessage = (e) => {
+      try { handleWSMessage(JSON.parse(e.data)) } catch {}
+    }
+    ws.onerror = () => {
+      setConnStatus('offline')
+      startRESTFallback()
+    }
+    ws.onclose = () => {
+      setConnStatus('offline')
+      const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts++), 30000)
+      wsReconnectTimer = setTimeout(connectWS, delay)
+    }
+  } catch {
+    setConnStatus('offline')
+    startRESTFallback()
+  }
+}
+
+function handleWSMessage(msg) {
+  if (!msg.stream || !msg.data) return
+  const data = msg.data
+  if (msg.stream.endsWith('@ticker')) {
+    const t = {
+      symbol: data.s,
+      price: parseFloat(data.c),
+      priceChange: parseFloat(data.p),
+      priceChangePercent: parseFloat(data.P),
+      volume: parseFloat(data.v) * parseFloat(data.c),
+      high24h: parseFloat(data.h),
+      low24h: parseFloat(data.l),
+    }
+    tickers[data.s] = t
+    updatePriceUI(t)
+  }
+  if (msg.stream.endsWith('@trade')) {
+    const trade = {
+      price: parseFloat(data.p),
+      qty: parseFloat(data.q),
+      buyerMaker: data.m,
+      ts: data.T,
+    }
+    handleTrade(trade)
+  }
+}
+
+// ── REST FALLBACK ─────────────────────────────────
+let restFallbackTimer = null
+function startRESTFallback() {
+  if (restFallbackTimer) return
+  async function poll() {
+    try {
+      const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols=["BTCUSDT","ETHUSDT"]')
+      if (!r.ok) throw new Error()
+      const data = await r.json()
+      data.forEach(d => {
+        const t = {
+          symbol: d.symbol,
+          price: parseFloat(d.lastPrice),
+          priceChange: parseFloat(d.priceChange),
+          priceChangePercent: parseFloat(d.priceChangePercent),
+          volume: parseFloat(d.volume) * parseFloat(d.lastPrice),
+          high24h: parseFloat(d.highPrice),
+          low24h: parseFloat(d.lowPrice),
+        }
+        tickers[d.symbol] = t
+        updatePriceUI(t)
+      })
+      setConnStatus('live')
+    } catch { setConnStatus('offline') }
+  }
+  poll()
+  restFallbackTimer = setInterval(poll, 5000)
+}
+
+// ── PRICE UI UPDATES ──────────────────────────────
+function updatePriceUI(t) {
+  if (t.symbol === 'BTCUSDT') {
+    const p = t.price, pct = t.priceChangePercent, up = pct >= 0
+    // Topbar
+    const tbp = document.getElementById('tb-price')
+    const tbc = document.getElementById('tb-change')
+    if (tbp) { tbp.textContent = fmtPrice(p); tbp.style.color = up ? 'var(--cyan)' : 'var(--red2)' }
+    if (tbc) {
+      tbc.textContent = (up ? '+' : '') + pct.toFixed(2) + '%'
+      tbc.className = 'badge ' + (up ? 'badge-green' : 'badge-red')
+    }
+    // Dashboard metrics
+    setText('m-price', fmtPrice(p))
+    const mc = document.getElementById('m-change')
+    if (mc) { mc.textContent = (up?'+':'') + pct.toFixed(2) + '% (24h)'; mc.className = 'metric-sub ' + (up?'col-green':'col-red') }
+    setText('m-high', fmtPriceInt(t.high24h))
+    setText('m-low', fmtPriceInt(t.low24h))
+    setText('m-vol', fmtVol(t.volume))
+    setText('chart-price', fmtPrice(p))
+    setText('levels-price', fmtPriceInt(p))
+    const cc = document.getElementById('chart-chg')
+    if (cc) { cc.textContent = (up?'+':'') + pct.toFixed(2) + '%'; cc.className = 'badge ' + (up?'badge-green':'badge-red') }
+    // Spark
+    sparkData.push(p)
+    if (sparkData.length > 80) sparkData.shift()
+    drawSpark()
+    // Ticker update
+    updateTickerItem('BTC/USD', fmtPrice(p), (up?'+':'') + pct.toFixed(2) + '%', up)
+  }
+  if (t.symbol === 'ETHUSDT') {
+    const up = t.priceChangePercent >= 0
+    setText('m-eth', fmtPrice(t.price))
+    const ec = document.getElementById('m-eth-chg')
+    if (ec) { ec.textContent = (up?'+':'') + t.priceChangePercent.toFixed(2) + '%'; ec.className = 'metric-sub ' + (up?'col-green':'col-red') }
+    updateTickerItem('ETH/USD', fmtPrice(t.price), (up?'+':'') + t.priceChangePercent.toFixed(2) + '%', up)
+  }
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id)
+  if (el) el.textContent = val
+}
+
+function setConnStatus(s) {
+  ['conn-badge','spark-status'].forEach(id => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.className = 'conn-badge ' + s
+    el.textContent = s === 'live' ? '⬤ LIVE' : s === 'connecting' ? '⬤ CONNECTING' : '⬤ OFFLINE'
+  })
+}
+
+// ── TRADE FEED ────────────────────────────────────
+const recentTrades = []
+function handleTrade(t) {
+  recentTrades.unshift(t)
+  if (recentTrades.length > 40) recentTrades.pop()
+  tradeCount++
+  const tc = document.getElementById('trade-count')
+  if (tc) tc.textContent = tradeCount.toLocaleString() + ' trades'
+  renderTrades()
+}
+
+function renderTrades() {
+  const el = document.getElementById('trade-list')
+  if (!el) return
+  el.innerHTML = recentTrades.slice(0, 18).map(t => {
+    const side = t.buyerMaker ? 'sell' : 'buy'
+    const usd = t.price * t.qty
+    return `<div class="trade-row">
+      <span class="trade-side ${side}">${side.toUpperCase()}</span>
+      <span style="color:var(--text2)">${t.price.toLocaleString('en-US',{maximumFractionDigits:0})}</span>
+      <span style="color:var(--text3)">${t.qty.toFixed(4)}</span>
+      <span style="color:var(--text3)">${fmtVol(usd)}</span>
+    </div>`
+  }).join('')
+}
+
+// ── SPARKLINE ─────────────────────────────────────
+function drawSpark() {
+  const canvas = document.getElementById('spark-canvas')
+  if (!canvas || sparkData.length < 2) return
+  const dpr = window.devicePixelRatio || 1
+  const w = canvas.offsetWidth, h = canvas.offsetHeight
+  canvas.width = w * dpr; canvas.height = h * dpr
+  const ctx = canvas.getContext('2d')
+  ctx.scale(dpr, dpr)
+  const min = Math.min(...sparkData), max = Math.max(...sparkData)
+  const range = max - min || 1
+  const pts = sparkData.map((v, i) => ({
+    x: (i / (sparkData.length - 1)) * w,
+    y: h - ((v - min) / range) * h * 0.82 - h * 0.05
+  }))
+  ctx.clearRect(0, 0, w, h)
+  // Fill
+  const grad = ctx.createLinearGradient(0, 0, 0, h)
+  grad.addColorStop(0, 'rgba(6,214,240,0.18)')
+  grad.addColorStop(1, 'rgba(6,214,240,0)')
+  ctx.beginPath(); ctx.moveTo(0, h)
+  pts.forEach(p => ctx.lineTo(p.x, p.y))
+  ctx.lineTo(w, h); ctx.closePath()
+  ctx.fillStyle = grad; ctx.fill()
+  // Line
+  ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
+  ctx.strokeStyle = 'rgba(6,214,240,.8)'; ctx.lineWidth = 1.5; ctx.stroke()
+  // Min/max labels
+  const hi = Math.max(...sparkData), lo = Math.min(...sparkData)
+  setText('spark-hi', fmtPriceInt(hi))
+  setText('spark-lo', fmtPriceInt(lo))
+}
+
+// ── CANDLESTICK CHART ─────────────────────────────
+function initChart() {
+  const container = document.getElementById('chart-container')
+  if (!container || chart) return
+  chart = LightweightCharts.createChart(container, {
+    layout: { background: { type:'solid', color:'transparent' }, textColor:'#4a6888', fontFamily:"'Space Mono',monospace", fontSize:9 },
+    grid: { vertLines: { color:'rgba(30,53,88,.4)' }, horzLines: { color:'rgba(30,53,88,.4)' } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor:'#1e3558' },
+    timeScale: { borderColor:'#1e3558', timeVisible:true, secondsVisible:false },
+    width: container.clientWidth,
+    height: container.clientHeight || 240,
+  })
+  candleSeries = chart.addCandlestickSeries({
+    upColor:'#0fba81', downColor:'#f04060',
+    borderUpColor:'#0fba81', borderDownColor:'#f04060',
+    wickUpColor:'rgba(15,186,129,.6)', wickDownColor:'rgba(240,64,96,.6)',
+  })
+  new ResizeObserver(() => {
+    if (container && chart) chart.applyOptions({ width: container.clientWidth, height: container.clientHeight || 240 })
+  }).observe(container)
+  loadCandles(currentTF)
+}
+
+async function loadCandles(interval) {
+  if (!candleSeries) return
+  try {
+    const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=300`)
+    if (!r.ok) throw new Error()
+    const raw = await r.json()
+    const candles = raw.map(k => ({
+      time: Math.floor(k[0]/1000),
+      open: parseFloat(k[1]), high: parseFloat(k[2]),
+      low: parseFloat(k[3]), close: parseFloat(k[4]),
+    }))
+    candleSeries.setData(candles)
+    chart.timeScale().fitContent()
+  } catch {
+    // Mock fallback
+    const candles = [], now = Date.now()
+    const ivMs = {'1m':60e3,'5m':300e3,'15m':900e3,'1h':3600e3,'4h':14400e3,'1d':86400e3}[interval] || 3600e3
+    let price = 103847
+    for (let i = 299; i >= 0; i--) {
+      const open = price, change = (Math.random()-.48)*price*.006
+      const close = Math.max(open+change, 50000)
+      candles.push({ time:Math.floor((now-i*ivMs)/1000), open, high:Math.max(open,close)*(1+Math.random()*.003), low:Math.min(open,close)*(1-Math.random()*.003), close })
+      price = close
+    }
+    candleSeries.setData(candles)
+    chart.timeScale().fitContent()
+  }
+}
+
+function setTF(tf) {
+  currentTF = tf
+  document.querySelectorAll('.tf-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === tf.toUpperCase())
+  })
+  loadCandles(tf)
+}
+
+// ── TICKER BAR ────────────────────────────────────
+const TICKER_ITEMS = [
+  {label:'BTC/USD',val:'$103,847',chg:'+2.47%',up:true},
+  {label:'ETH/USD',val:'$3,241',chg:'+1.82%',up:true},
+  {label:'BTC DOM',val:'62.3%',chg:'+1.2%',up:true},
+  {label:'FEAR/GREED',val:'76',chg:'Greed',up:true},
+  {label:'HASH RATE',val:'842 EH/s',chg:'ATH',up:true},
+  {label:'MEMPOOL',val:'42 sat/vB',chg:'Medium',up:true},
+  {label:'LIGHTNING',val:'5,421 BTC',chg:'Capacity',up:true},
+  {label:'MVRV',val:'2.84',chg:'Neutral',up:true},
+  {label:'24H VOL',val:'$48.2B',chg:'+18%',up:true},
+  {label:'SOPR',val:'1.034',chg:'Bullish',up:true},
+]
+const tickerLiveMap = {}
+
+function buildTicker() {
+  const track = document.getElementById('ticker-track')
+  const doubled = [...TICKER_ITEMS, ...TICKER_ITEMS]
+  track.innerHTML = doubled.map((t, i) => `
+    <div class="tick" id="tick-${i < TICKER_ITEMS.length ? t.label.replace('/','_') : ''}">
+      <span class="tick-label">${t.label}</span>
+      <span class="tick-val">${t.val}</span>
+      <span class="tick-chg ${t.up?'up':'dn'}">${t.chg}</span>
+    </div>`).join('')
+}
+
+function updateTickerItem(label, val, chg, up) {
+  const id = 'tick-' + label.replace('/','_')
+  const el = document.getElementById(id)
+  if (!el) return
+  const vs = el.querySelectorAll('span')
+  if (vs[1]) vs[1].textContent = val
+  if (vs[2]) { vs[2].textContent = chg; vs[2].className = 'tick-chg ' + (up?'up':'dn') }
+}
+
+// ── WHALE ALERTS ──────────────────────────────────
+function renderWhales() {
+  const el = document.getElementById('whale-list')
+  if (!el) return
+  el.innerHTML = whaleAlerts.map(w => `
+    <div class="whale-item">
+      <div class="whale-left">
+        <div class="whale-name">${w.from} → ${w.to}</div>
+        <div class="whale-usd">$${w.usd}M · ${w.ts}</div>
+      </div>
+      <div class="whale-btc" style="color:${w.dir==='out'?'var(--green2)':'var(--red2)'}">
+        ${w.dir==='out'?'↑':'↓'} ${w.btc.toLocaleString()} BTC
+      </div>
+    </div>`).join('')
+}
+
+// ── ADMIN TABLE ───────────────────────────────────
+function renderAdminTable() {
+  const el = document.getElementById('admin-table')
+  if (!el) return
+  el.innerHTML = `
+    <thead><tr>
+      <th>User</th><th>Plan</th><th>Status</th><th>AI Chats</th><th>Joined</th><th>Action</th>
+    </tr></thead>
+    <tbody>${adminUsers.map(u => `
+      <tr>
+        <td style="display:flex;align-items:center;gap:8px;padding:9px 12px">
+          <div class="u-avatar">${u.name[0]}</div>
+          <div><div style="font-size:11px;font-weight:500">${u.name}</div><div style="font-size:10px;color:var(--text3)">${u.email}</div></div>
+        </td>
+        <td><span class="badge ${u.plan==='institutional'?'badge-yellow':u.plan==='pro'?'badge-cyan':'badge-green'}" style="font-size:9px">${u.plan}</span></td>
+        <td><span class="badge ${u.status==='active'?'badge-green':'badge-red'}" style="font-size:9px">${u.status}</span></td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--text2)">${u.chats}</td>
+        <td style="font-size:11px;color:var(--text3)">${u.joined}</td>
+        <td style="display:flex;gap:5px">
+          <button class="action-btn" onclick="toast('Viewing ${u.name}...')">View</button>
+          <button class="action-btn danger" onclick="toast('${u.status==='banned'?'Unbanned':'Banned'}: ${u.name}')">${u.status==='banned'?'Unban':'Ban'}</button>
+        </td>
+      </tr>`).join('')}
+    </tbody>`
+}
+
+// ═══════════════════════════════════════════════
+//  AI CHAT ENGINE
+// ═══════════════════════════════════════════════
+const AI_SYSTEM = `You are Satoshi Terminal AI — an institutional-grade Bitcoin analyst.
+RULES:
+1. ONLY discuss Bitcoin (BTC). For altcoins say: "Satoshi Terminal is exclusively focused on Bitcoin."
+2. Be analytical, data-driven, and professional.
+3. Use markdown formatting: **bold** key terms, bullet points, backtick prices like \`$103,847\`.
+4. Current context: BTC ~$103,847, Fear & Greed 76 (Greed), Hash Rate ATH 842 EH/s, post-halving bull cycle.
+5. Note "this is analysis, not financial advice."
+6. Under 400 words unless deep explanation needed. Use ## headers.`
+
+const MOCK_RESPONSES = {
+  'support|resistance|level|zone': `## Key BTC Price Levels \n\n**Resistance Zones:**\n- \`$108,500\` — Previous local high (strong)\n- \`$115,000\` — Fibonacci 1.618 extension\n- \`$120,000\` — Psychological + consensus target\n\n**Support Zones:**\n- \`$100,000\` — Major psychological + institutional demand\n- \`$98,000\` — Weekly close support\n- \`$95,000\` — 50-day MA\n- \`$87,200\` — 200-day EMA (bull market support band)\n\n**Best risk/reward:** Long setups near \`$98K\`–\`$100K\`, stop below \`$93K\` weekly close.\n\n*Technical analysis only — not financial advice.*`,
+
+  'whale|institutional|large|smart money': `## Whale Activity Analysis \n\n**On-Chain This Week:**\n- **Exchange Outflows:** -15,234 BTC net — strong accumulation signal\n- **1K+ BTC Wallets:** Holdings up +3.2% in 30 days\n- **BlackRock IBIT Inflows:** ~$380M/day average\n- **MicroStrategy:** Continues accumulating, now holding >450K BTC\n\n**What It Means:** Sustained exchange outflows = whales moving to cold storage = not planning to sell. Historically, 10K+ BTC/week outflows precede major upward moves.\n\n**Bear case watch:** Any week showing 20K+ BTC net inflows to exchanges would signal potential distribution.\n\n*Analysis only — not financial advice.*`,
+
+  'halving|supply|inflation': `## Bitcoin Halving Cycle ⚡\n\n**April 2024 Halving:**\n- Block reward: 6.25 → **3.125 BTC**\n- New supply: ~900 → **~450 BTC/day**\n- Annual inflation rate: ~0.85% (lower than gold)\n\n**Historical Post-Halving Peaks:**\n- 2012 halving → +5,800% within 12 months\n- 2016 halving → +2,900% within 18 months\n- 2020 halving → +560% within 12 months\n\n**Current Cycle:** ~13 months post-halving. Peaks historically arrive 12–18 months after. ETF demand this cycle creates unprecedented supply shock — institutional buyers absorbing new issuance.\n\n*Past performance ≠ future results. Not financial advice.*`,
+
+  'structure|trend|bull|bear|market': `## BTC Market Structure \n\n**Current:** Bullish — price discovery territory above previous ATH.\n\n**Structure Points:**\n- Higher highs and higher lows since \`$54K\` September 2024 low\n- EMA 50 (\`$96,400\`) and EMA 200 (\`$87,200\`) both trending up\n- RSI at **61.4** — healthy momentum, not overbought\n- MACD: Bullish crossover intact above signal line\n\n**Key Scenarios:**\n1. **Continuation:** Close above \`$108,500\` → next target \`$115K\`\n2. **Healthy pullback:** Retest of \`$98K\`–\`$100K\` → strong buy zone\n3. **Trend invalidation:** Weekly close below \`$93K\`\n\n*Not financial advice. Always manage risk.*`,
+
+  'trade|setup|entry|position|buy|sell': `## BTC Trade Setup \n\n**Scenario A — Breakout (Aggressive)**\n- Entry: Close above \`$108,500\` on 4H candle\n- Target 1: \`$112,000\` (+3.2%)\n- Target 2: \`$118,000\` (+8.8%)\n- Stop loss: \`$105,800\` (2.5% risk)\n- Risk/reward: 1:3.5\n\n**Scenario B — Pullback Buy (Conservative)**\n- Entry zone: \`$98,000\`–\`$100,000\`\n- Target: \`$108,500\`–\`$115,000\`\n- Stop loss: Below \`$93,000\` weekly close\n- Risk/reward: 1:2.8\n\n**Position sizing:** Risk no more than 1–2% of portfolio per trade.\n\n*This is educational analysis, not financial advice. Never risk more than you can afford to lose.*`,
+}
+
+function getMockResponse(q) {
+  const lower = q.toLowerCase()
+  for (const [pattern, response] of Object.entries(MOCK_RESPONSES)) {
+    if (new RegExp(pattern).test(lower)) return response
+  }
+  const btcPrice = tickers.BTCUSDT?.price ? fmtPrice(tickers.BTCUSDT.price) : '$103,847'
+  return `## Bitcoin Analysis \n\nCurrent BTC at **\`${btcPrice}\`** — price discovery territory.\n\n**Market Overview:**\n- Market structure: Bullish (higher highs/lows intact)\n- RSI 61.4 — momentum healthy, not overbought\n- EMA 200 at \`$87,200\` — strong long-term support\n- Fear & Greed at **76 (Greed)** — sentiment elevated but not extreme\n\n**Key Levels:**\n- Resistance: \`$108,500\` then \`$115,000\`\n- Support: \`$98,000\`–\`$100,000\` zone\n\n**Bottom line:** Bias remains bullish above \`$100K\`. Watch for either breakout above \`$108.5K\` or a healthy retest of the \`$98K\`–\`$100K\` demand zone.\n\n*Analysis only — not financial advice.*`
+}
+
+function initChat() {
+  const msgs = document.getElementById('chat-msgs')
+  const welcomeMsg = `**Welcome to Satoshi Terminal AI.**\n\nPowered by Claude, specialized exclusively in Bitcoin analysis. I can help with:\n\n- **Price action & market structure**\n- **Support/resistance** and trade setups\n- **On-chain metrics** and whale behavior\n- **Macro events** and BTC impact\n- **Educational content** for any Bitcoin concept\n\nWhat would you like to analyze?`
+  appendMsg('assistant', welcomeMsg)
+  updateChatCounter()
+}
+
+function appendMsg(role, content) {
+  const msgs = document.getElementById('chat-msgs')
+  const div = document.createElement('div')
+  div.className = 'msg ' + role
+  div.innerHTML = `
+    <div class="msg-av ${role}">${role === 'assistant' ? '₿' : 'YOU'}</div>
+    <div class="msg-bubble">${renderMarkdown(content)}</div>`
+  msgs.appendChild(div)
+  msgs.scrollTop = msgs.scrollHeight
+  return div
+}
+
+function renderMarkdown(text) {
+  return text
+    .replace(/^## (.+)$/gm, '<strong style="font-size:13px;color:var(--cyan2)">$1</strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/^(?!<)/, '<p>')
+    .replace(/(?<!>)$/, '</p>')
+    .replace(/<p><\/p>/g, '')
+    .replace(/<\/ul><p>/g, '</ul>')
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input')
+  const q = input.value.trim()
+  if (!q) return
+
+  // Free limit check
+  if (chatMsgCount >= FREE_CHAT_LIMIT) {
+    toast('Free limit reached — upgrade to Pro for unlimited AI chat', true)
+    return
+  }
+
+  input.value = ''
+  document.getElementById('send-btn').disabled = true
+  document.getElementById('suggestions').style.display = 'none'
+
+  chatHistory.push({ role: 'user', content: q })
+  chatMsgCount++
+  updateChatCounter()
+  appendMsg('user', q)
+
+  // Typing indicator
+  const msgs = document.getElementById('chat-msgs')
+  const typingDiv = document.createElement('div')
+  typingDiv.className = 'msg assistant'
+  typingDiv.innerHTML = `<div class="msg-av ai">₿</div><div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`
+  msgs.appendChild(typingDiv)
+  msgs.scrollTop = msgs.scrollHeight
+
+  let responseText = ''
+
+  try {
+    if (ANTHROPIC_API_KEY && ANTHROPIC_API_KEY.startsWith('sk-ant')) {
+      // Real Anthropic API call
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          system: AI_SYSTEM,
+          messages: chatHistory.slice(-10),
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        responseText = data.content?.[0]?.text || getMockResponse(q)
+      } else {
+        responseText = getMockResponse(q)
+      }
+    } else {
+      // Simulate streaming delay for mock
+      await new Promise(r => setTimeout(r, 800 + Math.random() * 600))
+      responseText = getMockResponse(q)
+    }
+  } catch {
+    responseText = getMockResponse(q)
+  }
+
+  typingDiv.remove()
+  chatHistory.push({ role: 'assistant', content: responseText })
+  appendMsg('assistant', responseText)
+  document.getElementById('send-btn').disabled = false
+  document.getElementById('chat-input').focus()
+  updateChatCounter()
+}
+
+function sendSug(btn) {
+  document.getElementById('chat-input').value = btn.textContent
+  sendChat()
+}
+
+function clearChat() {
+  document.getElementById('chat-msgs').innerHTML = ''
+  chatHistory = []
+  chatMsgCount = 0
+  updateChatCounter()
+  document.getElementById('suggestions').style.display = 'flex'
+  initChat()
+}
+
+function updateChatCounter() {
+  const el = document.getElementById('chat-counter')
+  if (!el) return
+  const rem = FREE_CHAT_LIMIT - chatMsgCount
+  el.textContent = `${rem} / ${FREE_CHAT_LIMIT} free`
+  el.style.color = rem <= 2 ? 'var(--yellow2)' : 'var(--text3)'
+}
+
+// ── SEED SPARK DATA ───────────────────────────────
+function seedSparkData() {
+  let p = 103847
+  for (let i = 0; i < 40; i++) {
+    p += (Math.random() - 0.47) * 300
+    sparkData.push(p)
+  }
+}
+
+// ── INIT ──────────────────────────────────────────
+buildTicker()
+seedSparkData()
+drawSpark()
+connectWS()
+renderWhales()
+renderAdminTable()
+
+// Simulate whale alerts rotating
+setInterval(() => {
+  const newAlert = {
+    from: ['Binance','Coinbase','Kraken','Unknown Wallet','ETF Custody'][Math.floor(Math.random()*5)],
+    to: ['Cold Storage','Exchange','Unknown','OTC Desk'][Math.floor(Math.random()*4)],
+    btc: Math.round(300 + Math.random() * 2500),
+    usd: 0,
+    dir: Math.random() > 0.4 ? 'out' : 'in',
+    ts: 'Just now',
+  }
+  newAlert.usd = +(newAlert.btc * ((tickers.BTCUSDT?.price || 103847) / 1e6)).toFixed(1)
+  whaleAlerts.unshift(newAlert)
+  if (whaleAlerts.length > 12) whaleAlerts.pop()
+  whaleAlerts.forEach((a, i) => {
+    if (i > 0) {
+      const mins = i * 7 + Math.floor(Math.random() * 5)
+      a.ts = mins < 60 ? `${mins}m ago` : `${Math.floor(mins/60)}h ${mins%60}m ago`
+    }
+  })
+  renderWhales()
+}, 18000)
+
+// Resize chart on window resize
+window.addEventListener('resize', () => { if (chart) chart.applyOptions({ width: document.getElementById('chart-container')?.clientWidth || 600 }) })
+
+
+// ══════════════════════════════════════════════════════════════════
+//  CONFIGURATION — edit these values
+// ══════════════════════════════════════════════════════════════════
+const ADMIN_EMAIL = 'admin@satoshi.com'
+const ADMIN_PASS  = 'admin123'
+
+// STRIPE PAYMENT LINKS — create at dashboard.stripe.com/payment-links
+// e.g. 'https://buy.stripe.com/test_abc123'
+const STRIPE_LINK_PRO           = ''   // $49/month Pro plan
+const STRIPE_LINK_INSTITUTIONAL = ''   // $299/month Institutional plan
+
+// ══════════════════════════════════════════════════════════════════
+//  AUTH SYSTEM
+// ══════════════════════════════════════════════════════════════════
+let currentUser = null
+
+function getUsers(){try{return JSON.parse(localStorage.getItem('st_users')||'[]')}catch{return[]}}
+function saveUsers(u){localStorage.setItem('st_users',JSON.stringify(u))}
+function getSession(){try{return JSON.parse(localStorage.getItem('st_sess')||'null')}catch{return null}}
+function saveSession(u){localStorage.setItem('st_sess',JSON.stringify(u))}
+
+function seedAdmin(){
+  const users=getUsers()
+  if(!users.find(u=>u.email===ADMIN_EMAIL)){
+    users.push({email:ADMIN_EMAIL,hash:ADMIN_EMAIL+ADMIN_PASS,name:'Admin',plan:'institutional',isAdmin:true,
+      joined:new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'}),chats:0})
+    saveUsers(users)
+  }
+}
+
+function initAuth(){
+  seedAdmin()
+  const s=getSession()
+  if(s){currentUser=s;applyLogin(s)}
+  else document.getElementById('auth-overlay').style.display='flex'
+}
+
+function aTab(t){
+  document.querySelectorAll('.a-tab').forEach((b,i)=>b.classList.toggle('active',(t==='login'&&i===0)||(t==='signup'&&i===1)))
+  document.getElementById('a-login').style.display=t==='login'?'block':'none'
+  document.getElementById('a-signup').style.display=t==='signup'?'block':'none'
+  document.getElementById('a-err').textContent=''
+}
+
+function aLogin(){
+  const email=document.getElementById('a-email').value.trim().toLowerCase()
+  const pass=document.getElementById('a-pass').value
+  const err=document.getElementById('a-err')
+  if(!email||!pass){err.textContent='Please fill in all fields';return}
+  if(email===ADMIN_EMAIL.toLowerCase()&&pass===ADMIN_PASS){
+    const u={email:ADMIN_EMAIL,name:'Admin',plan:'institutional',isAdmin:true}
+    saveSession(u);currentUser=u;applyLogin(u);return
+  }
+  const users=getUsers()
+  const u=users.find(u=>u.email===email&&u.hash===email+pass)
+  if(!u){err.textContent='Invalid email or password';return}
+  if(u.isBanned){err.textContent='This account has been suspended';return}
+  const sess={email:u.email,name:u.name,plan:u.plan,isAdmin:!!u.isAdmin}
+  saveSession(sess);currentUser=sess;applyLogin(sess)
+}
+
+function aSignup(){
+  const name=document.getElementById('a-name').value.trim()
+  const email=document.getElementById('a-su-email').value.trim().toLowerCase()
+  const pass=document.getElementById('a-su-pass').value
+  const err=document.getElementById('a-su-err')
+  if(!name||!email||!pass){err.textContent='Please fill in all fields';return}
+  if(pass.length<6){err.textContent='Password must be at least 6 characters';return}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){err.textContent='Invalid email address';return}
+  const users=getUsers()
+  if(users.find(u=>u.email===email)){err.textContent='An account with this email already exists';return}
+  const nu={email,hash:email+pass,name,plan:'free',isAdmin:false,isBanned:false,
+    joined:new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'}),chats:0}
+  users.push(nu);saveUsers(users)
+  const sess={email,name,plan:'free',isAdmin:false}
+  saveSession(sess);currentUser=sess;applyLogin(sess)
+}
+
+function applyLogin(u){
+  document.getElementById('auth-overlay').style.display='none'
+  const init=(u.name||u.email).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
+  document.getElementById('u-av').textContent=init
+  document.getElementById('u-nm').textContent=u.name||u.email.split('@')[0]
+  const pip=document.getElementById('u-pip')
+  pip.style.background=u.plan==='institutional'?'var(--yellow2)':u.plan==='pro'?'var(--cyan)':'var(--text3)'
+  const ab=document.getElementById('admin-nav-btn')
+  if(ab)ab.style.display=u.isAdmin?'block':'none'
+  if(u.isAdmin)updateAdminStats()
+}
+
+function aLogout(){
+  localStorage.removeItem('st_sess');currentUser=null;chatHistory=[];chatMsgCount=0
+  document.getElementById('a-email').value=''
+  document.getElementById('a-pass').value=''
+  document.getElementById('a-err').textContent=''
+  document.getElementById('auth-overlay').style.display='flex'
+  document.getElementById('admin-nav-btn').style.display='none'
+  showPage('landing')
+  toast('Signed out')
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  STRIPE CHECKOUT
+// ══════════════════════════════════════════════════════════════════
+function stripeCheckout(plan){
+  const link=plan==='pro'?STRIPE_LINK_PRO:STRIPE_LINK_INSTITUTIONAL
+  const price=plan==='pro'?'$49/mo':'$299/mo'
+  if(!link){
+    toast('Set STRIPE_LINK_'+plan.toUpperCase()+' in the script to activate checkout')
+    showPage('upgrade')
+    return
+  }
+  const url=currentUser?.email?link+'?prefilled_email='+encodeURIComponent(currentUser.email):link
+  toast('Redirecting to Stripe ('+price+')...')
+  setTimeout(()=>window.open(url,'_blank'),700)
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ADMIN FUNCTIONS
+// ══════════════════════════════════════════════════════════════════
+function updateAdminStats(){
+  const users=getUsers()
+  const pro=users.filter(u=>u.plan==='pro').length
+  const inst=users.filter(u=>u.plan==='institutional').length
+  const mrr=pro*49+inst*299
+  const su=document.getElementById('stat-users');if(su)su.textContent=users.length.toLocaleString()
+  const ss=document.getElementById('stat-subs');if(ss)ss.textContent=(pro+inst).toString()
+  const sm=document.getElementById('stat-mrr');if(sm)sm.textContent='$'+mrr.toLocaleString()
+  const sd=document.getElementById('stat-dau');if(sd)sd.textContent=Math.max(1,Math.round(users.length*.28)).toString()
+}
+
+function renderAdminLive(){
+  const el=document.getElementById('admin-table');if(!el)return
+  const users=getUsers()
+  el.innerHTML='<thead><tr><th>User</th><th>Plan</th><th>Status</th><th>Chats</th><th>Joined</th><th>Action</th></tr></thead><tbody>'
+    +users.map(u=>`<tr>
+      <td style="display:flex;align-items:center;gap:8px;padding:9px 12px">
+        <div class="u-avatar">${(u.name||u.email)[0].toUpperCase()}</div>
+        <div><div style="font-size:11px;font-weight:500">${u.name||'&mdash;'}</div><div style="font-size:10px;color:var(--text3)">${u.email}</div></div>
+      </td>
+      <td><select onchange="adminPlan('${u.email}',this.value)" style="background:#151f33;border:1px solid #1e3558;border-radius:4px;padding:3px 6px;font-size:10px;color:#8aaccc;font-family:var(--font)">
+        <option value="free"${u.plan==='free'?' selected':''}>Free</option>
+        <option value="pro"${u.plan==='pro'?' selected':''}>Pro</option>
+        <option value="institutional"${u.plan==='institutional'?' selected':''}>Institutional</option>
+      </select></td>
+      <td><span class="badge ${u.isBanned?'badge-red':u.isAdmin?'badge-yellow':'badge-green'}" style="font-size:9px">${u.isBanned?'banned':u.isAdmin?'admin':'active'}</span></td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text2)">${u.chats||0}</td>
+      <td style="font-size:11px;color:var(--text3)">${u.joined||'&mdash;'}</td>
+      <td style="display:flex;gap:5px">
+        ${!u.isAdmin?`<button class="action-btn danger" onclick="adminBan('${u.email}')">${u.isBanned?'Unban':'Ban'}</button>`:'<span style="font-size:10px;color:var(--text3)">Owner</span>'}
+      </td>
+    </tr>`).join('')+'</tbody>'
+  updateAdminStats()
+}
+
+function adminPlan(email,plan){
+  const users=getUsers();const u=users.find(u=>u.email===email)
+  if(u){u.plan=plan;saveUsers(users);toast('Plan updated: '+email+' → '+plan)}
+  renderAdminLive()
+}
+function adminBan(email){
+  const users=getUsers();const u=users.find(u=>u.email===email)
+  if(u){u.isBanned=!u.isBanned;saveUsers(users);toast((u.isBanned?'Banned: ':'Unbanned: ')+email);renderAdminLive()}
+}
+function exportCSV(){
+  const users=getUsers()
+  const csv=['Email,Name,Plan,Status,Joined',...users.map(u=>`${u.email},${u.name||''},${u.plan},${u.isBanned?'banned':'active'},${u.joined||''}`)].join('\n')
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='satoshi-users.csv';a.click()
+  toast('CSV downloaded')
+}
+
+// Start auth on load
+initAuth()
+
+</script>
+</body>
+</html>
