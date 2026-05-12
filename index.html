@@ -1693,7 +1693,17 @@ const supabase = window.supabase.createClient(
   SUPABASE_ANON_KEY
 )
 </script>
+<script>
+async function signInWithGoogle() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google'
+  })
 
-</body>
+  if (error) {
+    console.error(error)
+    alert('Google login failed')
+  }
+}
+</script>
 </body>
 </html>
