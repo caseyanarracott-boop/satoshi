@@ -17,7 +17,7 @@
   --red:#f04060;--red2:#ff6080;
   --yellow:#f0a020;--yellow2:#ffc040; 
   --text:#e8f4ff;--text2:#8aaccc;--text3:#4a6888;
-  --font:'DM Sans',system-ui,sans-serif;
+  --font:'DM Sans',system-ui,sans-serif; 
   --mono:'Space Mono',monospace;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
@@ -1674,19 +1674,20 @@ initAuth()
 </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 const SUPABASE_URL = 'https://tcjnpbhichrzseixukat.supabase.co'
 
-const SUPABASE_ANON_KEY = 'YOUR_KEY'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjam5wYmhpY2hyenNlaXh1a2F0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTc4MDAsImV4cCI6MjA5NDE3MzgwMH0.CJ_Axb0-cpSVU7VjywH-NBqIDnnV84iv8Hm9aXNF6Yo'
 
-const supabase = window.supabase.createClient(
+const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 )
-</script>
-<script>
+
 async function signInWithGoogle() {
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: 'google'
   })
 
